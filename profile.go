@@ -2,6 +2,7 @@ package moves
 
 import "encoding/json"
 
+// Profile represents the user profile information.
 type Profile struct {
 	UserId  uint64 `json:"userId"`
 	Profile struct {
@@ -21,6 +22,7 @@ type Profile struct {
 	} `json:"profile"`
 }
 
+// Profile retrieves the user profile information for the authenticated user.
 func (c *Client) Profile() (*Profile, error) {
 	resp, err := c.Get(c.BaseURI + "/user/profile")
 	if err != nil {

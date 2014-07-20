@@ -1,5 +1,6 @@
 package moves
 
+// Segment represents a storyline segment.
 type Segment struct {
 	Type       string     `json:"type"`
 	StartTime  Time       `json:"startTime"`

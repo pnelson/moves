@@ -6,6 +6,7 @@ import (
 	"strconv"
 )
 
+// Summary represents the activity summary.
 type Summary struct {
 	Date    string `json:"date"` // yyyyMMdd
 	Summary []struct {
@@ -20,20 +21,32 @@ type Summary struct {
 	LastUpdate   Time  `json:"lastUpdate,omitempty"`
 }
 
+// Summary retrieves the activity summaries for the authenticated user
+// for the day, week, or month provided. See the API documentation for
+// expected period formats.
 func (c *Client) Summary(period string) ([]Summary, error) {
 	return c.SummaryQuery("/user/summary/daily/"+period, nil)
 }
 
+// SummaryRange retrieves the activity summaries for the authenticated user
+// over the provided date range. See the API documentation for expected
+// date formats and limitations.
 func (c *Client) SummaryRange(from, to string) ([]Summary, error) {
 	query := url.Values{"from": {from}, "to": {to}}
 	return c.SummaryQuery("/user/summary/daily", query)
 }
 
+// SummaryPast retrieves the activity summaries for the authenticated user
+// over the past provided days, including today. See the API documentation
+// for limitations.
 func (c *Client) SummaryPast(past int) ([]Summary, error) {
 	query := url.Values{"pastDays": {strconv.Itoa(past)}}
 	return c.SummaryQuery("/user/summary/daily", query)
 }
 
+// SummaryQuery retrieves the activity summaries for the authenticated user.
+// This method exists so that other query string parameters may be specified.
+// See the API documentation for additional query parameters.
 func (c *Client) SummaryQuery(path string, query url.Values) ([]Summary, error) {
 	resp, err := c.get(path, query)
 	if err != nil {
