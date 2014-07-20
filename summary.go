@@ -21,20 +21,20 @@ type Summary struct {
 }
 
 func (c *Client) Summary(period string) ([]Summary, error) {
-	return c.summary("/user/summary/daily/"+period, nil)
+	return c.SummaryQuery("/user/summary/daily/"+period, nil)
 }
 
 func (c *Client) SummaryRange(from, to string) ([]Summary, error) {
 	query := url.Values{"from": {from}, "to": {to}}
-	return c.summary("/user/summary/daily", query)
+	return c.SummaryQuery("/user/summary/daily", query)
 }
 
 func (c *Client) SummaryPast(past int) ([]Summary, error) {
 	query := url.Values{"pastDays": {strconv.Itoa(past)}}
-	return c.summary("/user/summary/daily", query)
+	return c.SummaryQuery("/user/summary/daily", query)
 }
 
-func (c *Client) summary(path string, query url.Values) ([]Summary, error) {
+func (c *Client) SummaryQuery(path string, query url.Values) ([]Summary, error) {
 	resp, err := c.get(path, query)
 	if err != nil {
 		return nil, err
