@@ -7,6 +7,40 @@ Package moves implements a [Moves][1] API client in Go.
 Usage
 -----
 
+Already have an access token?
+
+```go
+api := moves.New(token)
+summary, err := api.Storyline("2014-07-20")
+```
+
+Need a token or just want more control?
+
+```go
+t := &moves.Transport{
+  Key:        os.Getenv("MOVES_CLIENT_ID"),
+  Secret:     os.Getenv("MOVES_CLIENT_SECRET"),
+  TokenCache: moves.CacheFile("token_cache"),
+}
+
+fmt.Println("Enter the following URL in your browser.")
+fmt.Println(t.AuthCodeURL("foo"))
+
+var code string
+fmt.Println("Follow the instructions in the browser.")
+fmt.Println("When your browser redirects, grab the code from the query string.")
+fmt.Printf("Paste the code here: ")
+fmt.Scanf("%s", &code)
+
+token, err := t.Exchange(code)
+if err != nil {
+  return
+}
+
+api := t.Client()
+summary, err := api.Storyline("2014-07-20")
+```
+
 For usage information, see the [package documentation][2] or
 the [API documentation][3].
 
