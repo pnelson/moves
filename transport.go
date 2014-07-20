@@ -53,7 +53,8 @@ const AuthorizationURI = "https://api.moves-app.com/oauth/v1/authorize"
 const ExchangeURI = "https://api.moves-app.com/oauth/v1/access_token"
 
 var (
-	ErrNoToken = errors.New("moves: token is nil")
+	ErrNoToken        = errors.New("moves: token is nil")
+	ErrNoRefreshToken = errors.New("moves: refresh token is empty")
 )
 
 // AuthCodeURL returns a URL that the end-user should be redirected to,
@@ -86,9 +87,12 @@ func (t *Transport) AuthCodeURL(state string) string {
 
 // Exchange takes a code and gets an access Token from the remote server.
 func (t *Transport) Exchange(code string) (*Token, error) {
-	exchange, err := url.Parse(ExchangeURI)
-	if err != nil {
-		panic("ExchangeURI malformed: " + err.Error())
+	if t.Token == nil && t.TokenCache != nil {
+		t.Token, _ = t.TokenCache.Token()
+	}
+
+	if t.Token == nil {
+		t.Token = &Token{}
 	}
 
 	q := url.Values{
@@ -102,75 +106,45 @@ func (t *Transport) Exchange(code string) (*Token, error) {
 		q.Add("redirect_uri", t.CallbackURI)
 	}
 
-	if exchange.RawQuery == "" {
-		exchange.RawQuery = q.Encode()
-	} else {
-		exchange.RawQuery += "&" + q.Encode()
-	}
-
-	// Empty JSON body so that we don't get HTML back on error.
-	body := bytes.NewReader([]byte("{}"))
-	resp, err := http.Post(exchange.String(), "application/json", body)
+	err := t.update(q)
 	if err != nil {
 		return nil, err
 	}
 
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		var accessTokenError struct {
-			Code string `json:"error"`
-		}
-
-		err = json.NewDecoder(resp.Body).Decode(&accessTokenError)
-		if err != nil {
-			return nil, err
-		}
-
-		return nil, errors.New(accessTokenError.Code)
-	}
-
-	var b struct {
-		AccessToken  string        `json:"access_token"`
-		RefreshToken string        `json:"refresh_token"`
-		ExpiresIn    time.Duration `json:"expires_in"`
-		UserId       uint64        `json:"user_id"`
-	}
-
-	err = json.NewDecoder(resp.Body).Decode(&b)
-	if err != nil {
-		return nil, err
-	}
-
-	token := t.Token
-	if token == nil && t.TokenCache != nil {
-		token, _ = t.TokenCache.Token()
-		if token == nil {
-			token = &Token{}
-		}
-	}
-
-	token.Access = b.AccessToken
-	token.UserId = b.UserId
-
-	if b.RefreshToken != "" {
-		token.Refresh = b.RefreshToken
-	}
-
-	// The JSON decoder treats ExpiresIn as nanoseconds instead of seconds.
-	b.ExpiresIn *= time.Second
-	if b.ExpiresIn == 0 {
-		token.Expiry = time.Time{}
-	} else {
-		token.Expiry = time.Now().Add(b.ExpiresIn).UTC()
-	}
-
-	t.Token = token
 	if t.TokenCache != nil {
-		return token, t.TokenCache.PutToken(token)
+		return t.Token, t.TokenCache.PutToken(t.Token)
 	}
 
-	return token, nil
+	return t.Token, nil
+}
+
+// Refresh renews the Transport's token using its refresh token.
+func (t *Transport) Refresh() error {
+	if t.Token == nil {
+		return ErrNoToken
+	}
+
+	if t.Token.Refresh == "" {
+		return ErrNoRefreshToken
+	}
+
+	q := url.Values{
+		"grant_type":    {"refresh_token"},
+		"refresh_token": {t.Token.Refresh},
+		"client_id":     {t.Key},
+		"client_secret": {t.Secret},
+	}
+
+	err := t.update(q)
+	if err != nil {
+		return err
+	}
+
+	if t.TokenCache != nil {
+		return t.TokenCache.PutToken(t.Token)
+	}
+
+	return nil
 }
 
 // RoundTrip executes a single HTTP transaction using the Transport's Token as
@@ -195,8 +169,10 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	}
 
 	if t.Token.Expired() {
-		// TODO: refresh
-		return nil, errors.New("moves: token expired")
+		err := t.Refresh()
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// This is so that we don't modify the original request as specified
@@ -222,6 +198,71 @@ func (t *Transport) transport() http.RoundTripper {
 	}
 
 	return http.DefaultTransport
+}
+
+// update requests a new access token.
+func (t *Transport) update(q url.Values) error {
+	update, err := url.Parse(ExchangeURI)
+	if err != nil {
+		panic("ExchangeURI malformed: " + err.Error())
+	}
+
+	if update.RawQuery == "" {
+		update.RawQuery = q.Encode()
+	} else {
+		update.RawQuery += "&" + q.Encode()
+	}
+
+	// Empty JSON body so that we don't get HTML back on error.
+	body := bytes.NewReader([]byte("{}"))
+	resp, err := http.Post(update.String(), "application/json", body)
+	if err != nil {
+		return err
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		var accessTokenError struct {
+			Code string `json:"error"`
+		}
+
+		err = json.NewDecoder(resp.Body).Decode(&accessTokenError)
+		if err != nil {
+			return err
+		}
+
+		return errors.New(accessTokenError.Code)
+	}
+
+	var b struct {
+		AccessToken  string        `json:"access_token"`
+		RefreshToken string        `json:"refresh_token"`
+		ExpiresIn    time.Duration `json:"expires_in"`
+		UserId       uint64        `json:"user_id"`
+	}
+
+	err = json.NewDecoder(resp.Body).Decode(&b)
+	if err != nil {
+		return err
+	}
+
+	t.Token.Access = b.AccessToken
+	t.Token.UserId = b.UserId
+
+	if b.RefreshToken != "" {
+		t.Token.Refresh = b.RefreshToken
+	}
+
+	// The JSON decoder treats ExpiresIn as nanoseconds instead of seconds.
+	b.ExpiresIn *= time.Second
+	if b.ExpiresIn == 0 {
+		t.Token.Expiry = time.Time{}
+	} else {
+		t.Token.Expiry = time.Now().Add(b.ExpiresIn).UTC()
+	}
+
+	return nil
 }
 
 // RoundTrip executes a single HTTP transaction using the Transport's Token as
