@@ -48,9 +48,9 @@ type DefaultTransport struct {
 // can in turn be used to request an access token.
 const AuthorizationURI = "https://api.moves-app.com/oauth/v1/authorize"
 
-// ExchangeURI is an absolute URI used to request a set of token
+// TokenURI is an absolute URI used to request a set of token
 // credentials using the authorization code.
-const ExchangeURI = "https://api.moves-app.com/oauth/v1/access_token"
+const TokenURI = "https://api.moves-app.com/oauth/v1/access_token"
 
 var (
 	ErrNoToken        = errors.New("moves: token is nil")
@@ -202,7 +202,7 @@ func (t *Transport) transport() http.RoundTripper {
 
 // update requests a new access token.
 func (t *Transport) update(q url.Values) error {
-	update, err := url.Parse(ExchangeURI)
+	update, err := url.Parse(TokenURI)
 	if err != nil {
 		panic("ExchangeURI malformed: " + err.Error())
 	}
