@@ -12,8 +12,7 @@ import (
 // to the Moves API.
 type Client struct {
 	*http.Client        // Client is the http.Client used for requests.
-	*Transport          // Transport is the http.RoundTripper used by the client.
-	BaseURI      string // The base URI for requests.
+	BaseURI      string // BaseURI defines the base URI for requests.
 }
 
 // Weekday is like time.Weekday but starts at 1 for Sunday.
@@ -21,6 +20,9 @@ type Weekday int
 
 // Time is a time.Time that can be JSON decoded by the RFC3339Short format.
 type Time time.Time
+
+// BaseURI defines the base URI for requests.
+const BaseURI = "https://api.moves-app.com/api/1.1"
 
 // RFC3339Short defines the reference time for formatting.
 const RFC3339Short = "20060102T150405Z0700"
@@ -35,19 +37,11 @@ const (
 	Saturday
 )
 
-// New creates a Moves client using the specified key and secret.
-func New(key, secret string) *Client {
-	transport := &Transport{
-		Key:              key,
-		Secret:           secret,
-		AuthorizationURI: "https://api.moves-app.com/oauth/v1/authorize",
-		ExchangeURI:      "https://api.moves-app.com/oauth/v1/access_token",
-	}
-
+// New creates a Moves client using the provided token.
+func New(token string) *Client {
 	return &Client{
-		Client:    &http.Client{Transport: transport},
-		Transport: transport,
-		BaseURI:   "https://api.moves-app.com/api/1.1",
+		Client:  &http.Client{Transport: &DefaultTransport{Token: token}},
+		BaseURI: BaseURI,
 	}
 }
 

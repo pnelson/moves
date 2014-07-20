@@ -25,14 +25,6 @@ type Transport struct {
 	// default callback URI is used.
 	CallbackURI string
 
-	// AuthorizationURI is an absolute URI used to generate a code that
-	// can in turn be used to request an access token.
-	AuthorizationURI string
-
-	// ExchangeURI is an absolute URI used to request a set of token
-	// credentials using the authorization code.
-	ExchangeURI string
-
 	// Token contains an end-user's tokens.
 	// This may be a set of temporary credentials.
 	Token *Token
@@ -46,6 +38,20 @@ type Transport struct {
 	Transport http.RoundTripper
 }
 
+// DefaultTransport implements http.RoundTripper. With a valid token, it
+// can be used to make authenticated HTTP requests.
+type DefaultTransport struct {
+	Token string
+}
+
+// AuthorizationURI is an absolute URI used to generate a code that
+// can in turn be used to request an access token.
+const AuthorizationURI = "https://api.moves-app.com/oauth/v1/authorize"
+
+// ExchangeURI is an absolute URI used to request a set of token
+// credentials using the authorization code.
+const ExchangeURI = "https://api.moves-app.com/oauth/v1/access_token"
+
 var (
 	ErrNoToken = errors.New("moves: token is nil")
 )
@@ -53,7 +59,7 @@ var (
 // AuthCodeURL returns a URL that the end-user should be redirected to,
 // so that they may obtain an authorization code.
 func (t *Transport) AuthCodeURL(state string) string {
-	auth, err := url.Parse(t.AuthorizationURI)
+	auth, err := url.Parse(AuthorizationURI)
 	if err != nil {
 		panic("AuthorizationURI malformed: " + err.Error())
 	}
@@ -80,7 +86,7 @@ func (t *Transport) AuthCodeURL(state string) string {
 
 // Exchange takes a code and gets an access Token from the remote server.
 func (t *Transport) Exchange(code string) (*Token, error) {
-	exchange, err := url.Parse(t.ExchangeURI)
+	exchange, err := url.Parse(ExchangeURI)
 	if err != nil {
 		panic("ExchangeURI malformed: " + err.Error())
 	}
@@ -201,6 +207,14 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return t.transport().RoundTrip(req)
 }
 
+// Client returns a new Client that can make authenticated requests.
+func (t *Transport) Client() *Client {
+	return &Client{
+		Client:  &http.Client{Transport: t},
+		BaseURI: BaseURI,
+	}
+}
+
 // transport returns the configured Transport, or the http.DefaultTransport.
 func (t *Transport) transport() http.RoundTripper {
 	if t.Transport != nil {
@@ -208,6 +222,17 @@ func (t *Transport) transport() http.RoundTripper {
 	}
 
 	return http.DefaultTransport
+}
+
+// RoundTrip executes a single HTTP transaction using the Transport's Token as
+// authorization headers.
+func (t *DefaultTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	// This is so that we don't modify the original request as specified
+	// in the documentation for http.RoundTripper.
+	req = cloneRequest(req)
+	req.Header.Set("Authorization", "Bearer "+t.Token)
+
+	return http.DefaultTransport.RoundTrip(req)
 }
 
 // cloneRequest returns a copy of the given request.
