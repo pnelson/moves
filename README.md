@@ -34,11 +34,17 @@ fmt.Scanf("%s", &code)
 
 token, err := t.Exchange(code)
 if err != nil {
-  return
+  log.Fatal(err)
 }
 
 api := t.Client()
-summary, err := api.Storyline("2014-07-20")
+storyline, err := api.Storyline("2014-07-20")
+if err != nil {
+  log.Fatal(err)
+}
+
+fmt.Println(token)
+fmt.Println(storyline)
 ```
 
 For usage information, see the [package documentation][2] or
