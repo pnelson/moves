@@ -50,6 +50,11 @@ fmt.Println(storyline)
 For usage information, see the [package documentation][2] or
 the [API documentation][3].
 
+You can generate a new client id and secret through the Moves developer
+dashboard by creating a new app. Additionally, the app must be configured
+with at least the first *Redirect URI* field filled out. For development
+purposes, I usually use `http://localhost:3000`.
+
 
 Disclaimer
 ----------
