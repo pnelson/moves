@@ -16,7 +16,7 @@ type Activity struct {
 	Distance    float64 `json:"distance,omitempty"`
 	Steps       int64   `json:"steps,omitempty"`
 	Calories    int64   `json:"calories,omitempty"`
-	TrackPoints struct {
+	TrackPoints []struct {
 		Lat  float64 `json:"lat"`
 		Lon  float64 `json:"lon"`
 		Time Time    `json:"time"`
