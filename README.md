@@ -66,7 +66,7 @@ Moves is a trademark of ProtoGeo Oy.
 License
 -------
 
-Copyright (c) 2015 by Philip Nelson. See [LICENSE][4] for details.
+Copyright (c) 2016 by Philip Nelson. See [LICENSE][4] for details.
 
 
 [1]: https://moves-app.com
